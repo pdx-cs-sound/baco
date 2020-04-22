@@ -26,49 +26,48 @@ npsignal = len(psignal)
 sdb = rmsdb(psignal)
 print(f"signal {round(sdb, 2)}")
 
-for dec in range(2, 9):
-    cutoff = (1 / dec) - trans
+def write_signal(prefix, wsignal):
+    outfile = open(prefix + args.infile + ".wav", "wb")
+    soundfile.write(
+        outfile,
+        wsignal,
+        in_sound.samplerate,
+        subtype=in_sound.subtype,
+        endian=in_sound.endian,
+        format=in_sound.format,
+    )
 
-    nopt, bopt = signal.kaiserord(ripple, trans)
+nopt, bopt = signal.kaiserord(ripple, trans)
+print("nopt", nopt)
+
+for dec in range(2, 9):
     if dec * nopt > npsignal:
+        print("dec {dec} too large")
         break
+    cutoff = (1 / dec) - trans
+    if cutoff <= 0.01:
+        print("trans {trans} too tight")
+        break
+
     subband = signal.firwin(nopt, cutoff, window=('kaiser', bopt), scale=True)
     phase = nopt - 1
 
-    ppsignal = np.array(psignal)
-    np.append(np.zeros(phase), ppsignal)
+    ppsignal = np.concatenate((psignal, np.zeros(phase)))
     nppsignal = npsignal + phase
     fsignal = signal.lfilter(subband, [1], ppsignal)
+    write_signal("d", fsignal)
 
-    rsignal = np.array(fsignal[phase::dec])
-
-    isignal = np.zeros(npsignal + phase)
+    rsignal = np.array(fsignal[::dec])
+    isignal = np.zeros(nppsignal)
     for i, s in enumerate(rsignal):
-        isignal[dec * i + phase] = dec * s
-
+        isignal[dec * i] = dec * s
     resignal = signal.lfilter(subband, [1], isignal)
+    write_signal("u", resignal)
+    
     msignal = resignal[phase:]
+    write_signal("m", msignal)
     ressignal = psignal - msignal
+    write_signal("r", ressignal)
 
-    rdb = rmsdb(ressignal[phase:-phase])
+    rdb = rmsdb(ressignal)
     print(f"dec {dec} respwr {round(rdb - sdb, 2)}")
-
-out_model = open("m" + args.infile + ".wav", "wb")
-soundfile.write(
-    out_model,
-    msignal,
-    in_sound.samplerate,
-    subtype=in_sound.subtype,
-    endian=in_sound.endian,
-    format=in_sound.format,
-)
-
-out_residue = open("r" + args.infile + ".wav", "wb")
-soundfile.write(
-    out_residue,
-    ressignal,
-    in_sound.samplerate,
-    subtype=in_sound.subtype,
-    endian=in_sound.endian,
-    format=in_sound.format,
-)
