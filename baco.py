@@ -3,6 +3,10 @@ import numpy as np
 from scipy import signal
 import soundfile, sys
 
+trans = 0.01
+ripple = -40
+blocksize = 128
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "infile",
@@ -14,12 +18,13 @@ def rmsdb(signal):
     rms = np.sqrt(np.mean(np.square(signal)))
     return 20 * np.log10(rms)
 
-trans = 0.01
-ripple = -40
 
 in_sound = soundfile.SoundFile(args.infile + ".wav")
 if in_sound.channels != 1:
     print("sorry, mono audio only", file=sys.stderr)
+    exit(1)
+if in_sound.subtype != "PCM_16":
+    print("sorry, 16-bit audio only", file=sys.stderr)
     exit(1)
 psignal = in_sound.read()
 npsignal = len(psignal)
@@ -40,14 +45,30 @@ def write_signal(prefix, wsignal):
 nopt, bopt = signal.kaiserord(ripple, trans)
 print("nopt", nopt)
 
-for dec in range(2, 9):
+def rescode(residue):
+    nresidue = len(residue)
+    for b, i in enumerate(range(0, nresidue, blocksize)):
+        block = residue[i: i + blocksize]
+        block *= 2**15
+        bmax = np.max(block)
+        bmin = np.min(block)
+        bbits = None
+        for bits in range(1, 17):
+            if bmin >= -2**(bits - 1) and bmax < 2**(bits - 1):
+                bbits = bits
+                print(f"bbits {bbits} ({bmin}..{bmax})")
+                break
+        assert bbits != None
+        print(f"residue block {b} bits {bbits}")
+
+def model(dec):
     if dec * nopt > npsignal:
         print("dec {dec} too large")
-        break
+        return None
     cutoff = (1 / dec) - trans
     if cutoff <= 0.01:
         print("trans {trans} too tight")
-        break
+        return None
 
     subband = signal.firwin(nopt, cutoff, window=('kaiser', bopt), scale=True)
     phase = nopt - 1
@@ -56,8 +77,8 @@ for dec in range(2, 9):
     nppsignal = npsignal + phase
     fsignal = signal.lfilter(subband, [1], ppsignal)
     write_signal("d", fsignal)
-
     rsignal = np.array(fsignal[::dec])
+
     isignal = np.zeros(nppsignal)
     for i, s in enumerate(rsignal):
         isignal[dec * i] = dec * s
@@ -71,3 +92,8 @@ for dec in range(2, 9):
 
     rdb = rmsdb(ressignal)
     print(f"dec {dec} respwr {round(rdb - sdb, 2)}")
+    rescode(ressignal)
+
+    return (rsignal, ressignal)
+
+model(8)
