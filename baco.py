@@ -65,7 +65,22 @@ nopt, bopt = signal.kaiserord(ripple, trans)
 def rescode(residue):
     blocksize = args.blocksize
     nresidue = len(residue)
-    totalbits = 0
+    acc = 0
+    nacc = 0
+    rbytes = []
+
+    def save(val, bits):
+        nonlocal acc, nacc, rbytes
+        if val < 0 or val >= 1 << (bits + 1):
+            raise Exception("quant error", bits, val)
+        acc <<= bits
+        nacc += bits
+        acc |= val
+        while nacc >= 8:
+            rbytes.append(acc & 0xff)
+            acc >>= 8
+            nacc -= 8
+
     for b, i in enumerate(range(0, nresidue, blocksize)):
         end = min(nresidue, i + blocksize)
         block = residue[i: end]
@@ -81,10 +96,17 @@ def rescode(residue):
                 break
         assert bbits != None
         #print(f"residue block {b} bits {bbits}")
-        totalbits += bbits * nblock
-    return totalbits
+        save(bbits, 5)
+        block += 1 << (bbits - 1)
+        for r in block:
+            save(int(r), bbits)
+    if nacc > 0:
+        assert nacc < 8
+        acc <<= 8 - nacc
+        rbytes.append(acc & 0xff)
+    return bytes(rbytes)
 
-def model(dec):
+def compress(dec):
     if dec * nopt > npsignal:
         #print("dec {dec} too large")
         return None
@@ -115,32 +137,39 @@ def model(dec):
 
     rdb = rmsdb(ressignal)
     #print(f"dec {dec} respwr {round(rdb - sdb, 2)}")
-    resbits = rescode(ressignal)
+    rbytes = rescode(ressignal)
 
-    return (16 * len(rsignal), resbits)
+    return (rsignal, rbytes)
 
 def kbytes(bits):
     return round(bits / 8192, 2)
 
-best_model = 16 * npsignal
-best_residue = 0
 best_dec = 1
+best = None
+best_size = 16 * npsignal
 start = 2
 end = 16
 if args.dec != None:
     start = args.dec
     end = args.dec
 for dec in range(start, end + 1):
-    compression = model(dec)
+    compression = compress(dec)
     if compression == None:
         break
-    mbits, rbits = compression
-    if mbits + rbits < best_model + best_residue:
+    model, residue = compression
+    mbits = 16 * len(model)
+    rbits = 8 * len(residue)
+    print(f"dec {dec} kb {kbytes(mbits + rbits)}")
+    if mbits + rbits < best_size:
         best_dec = dec
-        best_model = mbits
-        best_residue = rbits
+        best = compression
+        best_size = mbits + rbits
 
 print(f"best dec {best_dec}")
-print(f"model kb {kbytes(best_model)}")
-print(f"residue kb {kbytes(best_residue)}")
-print(f"total kbytes {kbytes(best_model + best_residue)}")
+if best != None:
+    model, residue = best
+    bits_model = 16 * len(model)
+    bits_residue = 8 * len(residue)
+    print(f"model kb {kbytes(bits_model)}")
+    print(f"residue kb {kbytes(bits_residue)}")
+    print(f"total kbytes {kbytes(bits_model + bits_residue)}")
