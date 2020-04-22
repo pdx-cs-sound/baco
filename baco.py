@@ -9,7 +9,7 @@ ripple = -40
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--blocksize",
-    help="Decimation factor.",
+    help="Residue block size.",
     type=int,
     default=128,
 )
@@ -17,6 +17,12 @@ parser.add_argument(
     "--save",
     help="Save intermediate results.",
     action="store_true",
+)
+parser.add_argument(
+    "--dec",
+    help="Decimation factor.",
+    type=int,
+    default=None,
 )
 parser.add_argument(
     "infile",
@@ -119,7 +125,12 @@ def kbytes(bits):
 best_model = 16 * npsignal
 best_residue = 0
 best_dec = 1
-for dec in range(2, 17):
+start = 2
+end = 16
+if args.dec != None:
+    start = args.dec
+    end = args.dec
+for dec in range(start, end + 1):
     compression = model(dec)
     if compression == None:
         break
