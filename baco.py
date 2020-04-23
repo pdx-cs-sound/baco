@@ -5,7 +5,8 @@ from scipy import signal
 import soundfile, struct, sys
 
 # .baco file format version
-baco_version = 1
+baco_version_major = 1
+baco_version_minor = 2
 
 # Anti-aliasing filter transition bandwidth.
 trans = 0.01
@@ -335,7 +336,8 @@ def wp(fmt, *args):
 # 0: Magic number.
 baco.write(b"baco")
 # 4: File version.
-wp("<H", baco_version)
+wp("<B", baco_version_major)
+wp("<B", baco_version_minor)
 # 6: Sample size in bits (for signal and model).
 wp("<B", 16)
 # 7: Sample channels.
