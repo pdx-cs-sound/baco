@@ -78,7 +78,7 @@ file `f.wav`, say `python3 baco.py f`.
 
 ## The `.baco` File Format
 
-Version 1 of the `.baco` compressed file format is
+The current version of the `.baco` compressed file format is
 undocumented except in code comments. Please see `baco.py`,
 which describes it reasonably clearly.
 
@@ -89,7 +89,7 @@ which describes it reasonably clearly.
 * [x] Adequate commenting and documentation
 * [x] Computations "integerized" (but in float because `numpy`)
 * [x] Writes output to `.baco` file
-* [ ] Saves filter in `.baco` file for reconstruction
+* [x] Saves filter in `.baco` file for reconstruction
 * [ ] Decompresses
 * [ ] Tested losslessness
 * [ ] Packaging

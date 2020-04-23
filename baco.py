@@ -12,6 +12,13 @@ trans = 0.01
 # Anti-aliasing filter max ripple in passband, stopband.
 ripple = -40
 
+# Print to stderr.
+def eprint(*args, **kwargs):
+    if 'file' in kwargs:
+        raise Exception("eprint with file argument")
+    kwargs['file'] = sys.stderr
+    print(*args, **kwargs)
+
 # Parse the command-line arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -71,10 +78,10 @@ def rmsdb(signal):
 # Read the input signal.
 in_sound = soundfile.SoundFile(args.infile + ".wav")
 if in_sound.channels != 1:
-    print("sorry, mono audio only", file=sys.stderr)
+    eprint("sorry, mono audio only")
     exit(1)
 if in_sound.subtype != "PCM_16":
-    print("sorry, 16-bit audio only", file=sys.stderr)
+    eprint("sorry, 16-bit audio only")
     exit(1)
 psignal = in_sound.read(dtype='int16')
 npsignal = len(psignal)
@@ -258,8 +265,8 @@ def compress(dec, size_only=False, save=False):
     if size_only:
         return 16 * len(model) + 8 * ((rcode + 7) // 8)
 
-    # Return the model and coded residue.
-    return (model, rcode)
+    # Return the model, coded residue, and filter.
+    return (model, rcode, subband.astype(np.int32))
 
 # Display-convenient bits-to-kbytes, for debugging.
 def kbytes(bits):
@@ -281,7 +288,7 @@ else:
         if csize == None:
             break
         if args.verbose:
-            print(f"dec {dec} kib {kbytes(csize)}", file=sys.stderr)
+            eprint(f"dec {dec} KiB {kbytes(csize)}")
         if csize < best_size:
             best_dec = dec
             best_size = csize
@@ -290,22 +297,25 @@ else:
 
 # If the file doesn't compress, give up.
 if best_dec == 1:
-    print("No compression found. Exiting.", file=sys.stderr)
+    eprint("No compression found. Exiting.")
     exit(2)
 
 # Actually compress the signal.
-model, residue = compress(best_dec, save=args.save_intermediate)
+model, residue, coeffs = compress(best_dec, save=args.save_intermediate)
 nmodel = len(model)
 nresidue = len(residue)
+ncoeffs = len(coeffs)
 
 # Report results if requested.
 if args.verbose:
     bits_model = 16 * nmodel
     bits_residue = 8 * nresidue
-    print(f"best dec {best_dec}", file=sys.stderr)
-    print(f"model kib {kbytes(bits_model)}", file=sys.stderr)
-    print(f"residue kib {kbytes(bits_residue)}", file=sys.stderr)
-    print(f"total kib {kbytes(bits_model + bits_residue)}", file=sys.stderr)
+    bits_coeffs = 32 * ncoeffs
+    eprint(f"best dec {best_dec}")
+    eprint(f"model KiB {kbytes(bits_model)}")
+    eprint(f"residue KiB {kbytes(bits_residue)}")
+    eprint(f"coeffs ({ncoeffs}) KiB {kbytes(bits_coeffs)}")
+    eprint(f"total KiB {kbytes(bits_model + bits_residue + bits_coeffs)}")
 
 if args.no_compress:
     exit(0)
@@ -313,7 +323,7 @@ if args.no_compress:
 # Open .baco file.
 dest = args.infile + ".baco"
 if not args.force and os.path.exists(dest):
-    print(f"{dest} exists and no -f flag: refusing to write", file=sys.stderr)
+    eprint(f"{dest} exists and no -f flag: refusing to write")
     exit(1)
 baco = open(dest, "wb")
 
@@ -337,14 +347,19 @@ wp("<I", in_sound.samplerate)
 # 20.. Per-channel info.
 # 20: Decimation factors, one per channel.
 wp("<B", dec)
-# 21: Pad decimation factors to 8-byte boundary.
-wp("<3B", 0, 0, 0)
+# 21: Pad decimation factors to 2-byte boundary.
+wp("<B", 0)
+# 22: Filter coefficient counts, one per channel.
+wp("<H", ncoeffs)
+# 24: Pad coeffs to 8-byte boundary (not necessary for 1 channel).
 # 24: Channel model lengths in frames, one per channel.
 wp("<Q", nmodel)
 # 32: Residue lengths in bytes, one per channel.
 wp("<Q", nresidue)
-# 40: Models, one per channel.
+# 40: Models, 16-bit values, one list per channel.
 baco.write(bytes(model.newbyteorder('<')))
-# Residues, one per channel.
+# Residues, one list per channel.
 baco.write(bytes(residue))
+# Filter coeffs, 32-bit values, one list per channel.
+baco.write(bytes(coeffs.newbyteorder('<')))
 baco.close()
