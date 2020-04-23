@@ -6,7 +6,7 @@ import soundfile, struct, sys
 
 # .baco file format version
 baco_version_major = 1
-baco_version_minor = 2
+baco_version_minor = 3
 
 # Anti-aliasing filter transition bandwidth.
 trans = 0.01
@@ -348,10 +348,10 @@ if args.no_result:
 if args.outfile is None:
     baco = sys.stdout.buffer
 else:
-    if not args.force and os.path.exists(dest):
+    if not args.force and os.path.exists(args.outfile):
         eprint(f"{dest} exists and no -f flag: refusing to write")
         exit(1)
-    baco = open(dest, "wb")
+    baco = open(args.outfile, "wb")
 
 # Convenience function for writing packed bytes.
 def wp(fmt, *args):
@@ -371,22 +371,26 @@ wp("<B", 1)
 wp("<Q", npsignal)
 # 16: Sample rate in sps.
 wp("<I", in_sound.samplerate)
-# 20.. Per-channel info.
-# 20: Decimation factors, one per channel.
+# 20: Residue block size in samples.
+wp("<H", args.blocksize)
+# 22.. Per-channel info.
+# 22: Decimation factors, one per channel.
 wp("<B", dec)
-# 21: Pad decimation factors to 2-byte boundary.
+# 23: Pad decimation factors to 8-byte boundary.
 wp("<B", 0)
-# 22: Filter coefficient counts, one per channel.
-wp("<H", ncoeffs)
-# 24: Pad coeffs to 8-byte boundary (not necessary for 1 channel).
 # 24: Channel model lengths in frames, one per channel.
 wp("<Q", nmodel)
 # 32: Residue lengths in bytes, one per channel.
 wp("<Q", nresidue)
-# 40: Models, 16-bit values, one list per channel.
-baco.write(bytes(model.newbyteorder('<')))
-# Residues, one list per channel.
-baco.write(bytes(residue))
+# 40: Filter coefficient counts, one per channel.
+wp("<H", ncoeffs)
+# 42: Pad coeff counts to 4-byte boundary
+wp("<H", 0)
+# 44: Start of per-channel data.
 # Filter coeffs, 32-bit values, one list per channel.
 baco.write(bytes(coeffs.newbyteorder('<')))
+# Models, 16-bit values, one list per channel.
+baco.write(bytes(model.newbyteorder('<')))
+# Residues, byte stream, one list per channel.
+baco.write(bytes(residue))
 baco.close()
