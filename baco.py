@@ -361,12 +361,12 @@ def wp(fmt, *args):
 # 0: Magic number.
 baco.write(b"baco")
 # 4: File version.
-wp("<B", baco_version_major)
-wp("<B", baco_version_minor)
+wp("B", baco_version_major)
+wp("B", baco_version_minor)
 # 6: Sample size in bits (for signal and model).
-wp("<B", 16)
+wp("B", 16)
 # 7: Sample channels.
-wp("<B", 1)
+wp("B", 1)
 # 8: Signal length in frames.
 wp("<Q", npsignal)
 # 16: Sample rate in sps.
@@ -375,9 +375,9 @@ wp("<I", in_sound.samplerate)
 wp("<H", args.blocksize)
 # 22.. Per-channel info.
 # 22: Decimation factors, one per channel.
-wp("<B", dec)
+wp("B", dec)
 # 23: Pad decimation factors to 8-byte boundary.
-wp("<B", 0)
+wp("B", 0)
 # 24: Channel model lengths in frames, one per channel.
 wp("<Q", nmodel)
 # 32: Residue lengths in bytes, one per channel.
