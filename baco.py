@@ -139,7 +139,7 @@ def rescode(residue, size_only=False):
     nresidue = len(residue)
     acc = 0
     nacc = 0
-    rbytes = []
+    rbytes = bytearray()
     nrbits = 0
 
     # Append val as a field of size bits to the residue
@@ -148,26 +148,27 @@ def rescode(residue, size_only=False):
         nonlocal acc, nacc, rbytes
 
         # Add bits to the accumulator.
-        # XXX This assertion should be on, but is a
-        # significant performance penalty.
-        # if val < 0 or val >= 1 << (bits + 1):
-        #     raise Exception("quant error", bits, val)
+        #if val < 0 or val >= (1 << bits):
+        #    raise Exception("quant error", bits, val)
         acc <<= bits
         nacc += bits
         acc |= val
 
         # Save full bytes from accumulator to byte list.
         while nacc >= 8:
-            rbytes.append(acc & 0xff)
-            acc >>= 8
+            b = acc >> (nacc - 8)
+            rbytes.append(b)
             nacc -= 8
+            # XXX Clear bits to avoid Python having to
+            # shift them later.
+            acc &= (1 << nacc) - 1
 
     # Find the number of bits needed to encode each block,
     # then encode the block.
     for b, i in enumerate(range(0, nresidue, blocksize)):
         # Form the block.
         end = min(nresidue, i + blocksize)
-        block = residue[i: end]
+        block = np.array(residue[i: end], dtype=np.int64)
         nblock = end - i
 
         # Find the maximum number of bits needed to
@@ -175,13 +176,19 @@ def rescode(residue, size_only=False):
         bmax = np.max(block)
         bmin = np.min(block)
         bbits = None
-        for bits in range(1, 17):
-            if bmin >= -(1 << (bits - 1)) and bmax < (1 << (bits - 1)):
+        for bits in range(1, 33):
+            r = 1 << (bits - 1)
+            if bmin >= -r and bmax < r:
                 bbits = bits
-                #print(f"bbits {bbits} ({bmin}..{bmax})")
+                #eprint(f"bbits {bbits} ({bmin}..{bmax})")
+                block += r
+                #eprint(f"adj {np.min(block)}..{np.max(block)}")
+                assert np.min(block) >= 0
+                assert np.max(block) < (1 << bbits)
                 break
         assert bbits != None
-        #print(f"residue block {b} bits {bbits}")
+        #if args.verbose:
+        #    eprint(f"residue block {b} bits {bbits}")
 
         # Compute the number of bits for this block. If
         # size_only, that's all to do.
@@ -191,7 +198,6 @@ def rescode(residue, size_only=False):
 
         # Save the bit size, then all the bits.
         savebits(bbits, 5)
-        block += 1 << (bbits - 1)
         for r in block:
             savebits(r, bbits)
 
@@ -208,7 +214,7 @@ def rescode(residue, size_only=False):
         rbytes.append(acc & 0xff)
 
     # Return the residue.
-    return bytes(rbytes)
+    return np.array(rbytes, dtype=np.uint8)
 
 # Build a decimation antialiasing filter for the given
 # decimation factor. The filter will have coefficients
