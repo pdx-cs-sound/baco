@@ -46,7 +46,7 @@ if in_sound.channels != 1:
 if in_sound.subtype != "PCM_16":
     print("sorry, 16-bit audio only", file=sys.stderr)
     exit(1)
-psignal = in_sound.read()
+psignal = in_sound.read(dtype='int16')
 npsignal = len(psignal)
 #sdb = rmsdb(psignal)
 #print(f"signal {round(sdb, 2)}")
@@ -109,9 +109,8 @@ def rescode(residue, size_only=False):
         block = residue[i: end]
         nblock = end - i
 
-        # Scale the block to 16-bit, then find the maximum
-        # number of bits needed to represent a sample.
-        block *= 2**15
+        # Find the maximum number of bits needed to
+        # represent a residue sample.
         bmax = np.max(block)
         bmin = np.min(block)
         bbits = None
@@ -133,7 +132,7 @@ def rescode(residue, size_only=False):
         save(bbits, 5)
         block += 1 << (bbits - 1)
         for r in block:
-            save(int(r), bbits)
+            save(r, bbits)
 
     # If size_only, just return the number of bits
     # for the residue representation.
@@ -150,13 +149,12 @@ def rescode(residue, size_only=False):
     # Return the residue.
     return bytes(rbytes)
 
-# Compress the input signal psignal using the
-# given decimation. If save, save various artifacts
-# for later analysis. If size_only, return the
-# model + coded residue size in bits. Otherwise,
-# return the model and coded residue.
-def compress(dec, size_only=False, save=False):
-    # Build the subband filter.
+# Build a decimation antialiasing filter for the given
+# decimation factor. The filter will have coefficients
+# scaled and quantized to 32 bits, in order to be
+# reproducible on the decompressor side with integer
+# arithmetic.
+def build_subband(dec):
     if dec * nopt > npsignal:
         #print("dec {dec} too large")
         return None
@@ -164,21 +162,50 @@ def compress(dec, size_only=False, save=False):
     if cutoff <= 0.01:
         #print("trans {trans} too tight")
         return None
-    subband = signal.firwin(nopt, cutoff, window=('kaiser', bopt), scale=True)
+    subband = signal.firwin(
+        nopt,
+        cutoff,
+        window=('kaiser', bopt),
+        pass_zero='lowpass',
+        scale=True,
+    )
+    return (subband * 2**31).astype(np.int32).astype(np.float64)
 
-    # Filter and decimate by dec.
-    ppsignal = np.concatenate((psignal, np.zeros(phase)))
+# Compress the input signal psignal using the
+# given decimation. If save, save various artifacts
+# for later analysis. If size_only, return the
+# model + coded residue size in bits. Otherwise,
+# return the model and coded residue.
+def compress(dec, size_only=False, save=False):
+    # Build the subband filter.
+    subband = build_subband(dec)
+    if subband is None:
+        return None
+
+    # Filter and decimate by dec, being careful to get the
+    # integer scaling right.
+    # XXX lfilter() doesn't take integers, so we will use
+    # floating-point, but be careful to keep the significand
+    # in range (less than 48 bits) so that the bad thing
+    # doesn't happen. This is a gross kludge, and should
+    # probably just be replaced with a custom filter
+    # function using convolve().
+    ppsignal = np \
+        .concatenate((psignal, np.zeros(phase, dtype=np.int16))) \
+        .astype(np.float64)
     nppsignal = npsignal + phase
-    fsignal = signal.lfilter(subband, [1], ppsignal)
+    lfsignal = signal.lfilter(subband, [1], ppsignal)
+    fsignal = (lfsignal // 2**31).astype(np.int16)
     write_signal("d", fsignal, save=save)
     model = np.array(fsignal[::dec])
 
     # Interpolate and filter by dec to reconstruct the
     # modeled signal.
-    isignal = np.zeros(nppsignal)
-    for i, s in enumerate(model):
+    isignal = np.zeros(nppsignal, dtype=np.int64)
+    for i, s in enumerate(model.astype(np.int64)):
         isignal[dec * i] = dec * s
-    resignal = signal.lfilter(subband, [1], isignal)
+    lresignal = signal.lfilter(subband, [1], isignal)
+    resignal = (lresignal // 2**31).astype(np.int16)
     write_signal("u", resignal, save=save)
     
     # Clip the reconstructed signal to get rid of empty
@@ -229,13 +256,17 @@ for dec in range(start, end + 1):
     if csize < best_size:
         best_dec = dec
         best_size = csize
-print(f"best dec {best_dec}")
+
+# If the file doesn't compress, give up.
+if best_dec == 1:
+    print("No compression found. Exiting.", file=sys.stderr)
+    exit(2)
 
 # Actually compress the signal, reporting results.
-if best_dec > 1:
-    model, residue = compress(best_dec, save=args.save)
-    bits_model = 16 * len(model)
-    bits_residue = 8 * len(residue)
-    print(f"model kb {kbytes(bits_model)}")
-    print(f"residue kb {kbytes(bits_residue)}")
-    print(f"total kbytes {kbytes(bits_model + bits_residue)}")
+model, residue = compress(best_dec, save=args.save)
+bits_model = 16 * len(model)
+bits_residue = 8 * len(residue)
+print(f"best dec {best_dec}")
+print(f"model kb {kbytes(bits_model)}")
+print(f"residue kb {kbytes(bits_residue)}")
+print(f"total kbytes {kbytes(bits_model + bits_residue)}")

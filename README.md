@@ -81,14 +81,16 @@ file `f.wav`, say `python3 baco.py f`.
 * [x] Decimation model complete
 * [x] Block residue encoder complete
 * [x] Adequate commenting and documentation
+* [x] Computations "integerized" (but in float because `numpy`)
 * [ ] Writes output to `.baco` file
 * [ ] Progressive `.baco` files (interleaved)
 * [ ] Decompresses
-* [ ] Computations in integer, not float
 * [ ] Tested losslessness
 * [ ] Packaging
 * [ ] Stereo
 * [ ] Multichannel
+* [ ] Computations fully integerized
+* [ ] Progressive compression, without whole signal in memory
 * [ ] Support for 8, 24, and 32 bit samples
 * [ ] Arithmetic residue encoder
 * [ ] Better model
