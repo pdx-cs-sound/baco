@@ -11,21 +11,32 @@ ripple = -40
 # Parse the command-line arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument(
+    "-n", "--nocompress",
+    help="Do not produce an output .baco file.",
+    action="store_true",
+)
+parser.add_argument(
+    "-m", "--max-dec",
+    help="Maximum decimation factor for search.",
+    type=int,
+    default=16,
+)
+parser.add_argument(
     "--blocksize",
     help="Residue block size.",
     type=int,
     default=128,
 )
 parser.add_argument(
-    "--save",
-    help="Save intermediate results.",
-    action="store_true",
-)
-parser.add_argument(
     "--dec",
-    help="Decimation factor.",
+    help="Fixed decimation factor.",
     type=int,
     default=None,
+)
+parser.add_argument(
+    "--save-intermediate",
+    help="Save intermediate results for debugging.",
+    action="store_true",
 )
 parser.add_argument(
     "infile",
@@ -235,27 +246,25 @@ def compress(dec, size_only=False, save=False):
 def kbytes(bits):
     return round(bits / 8192, 2)
 
-# Start by assuming that not compressing is best.
-best_dec = 1
-best_size = 16 * npsignal
-start = 2
-end = 16
-# If the decrement was specified by the user, the search
-# should just do that.
 if args.dec != None:
-    start = args.dec
-    end = args.dec
-# Iteratively search through the possible decimations to
-# find the best-compression one. Skip the residue coding to
-# save time.
-for dec in range(start, end + 1):
-    csize = compress(dec, size_only=True)
-    if csize == None:
-        break
-    print(f"dec {dec} kb {kbytes(csize)}")
-    if csize < best_size:
-        best_dec = dec
-        best_size = csize
+    # If the decrement was specified by the user, skip the
+    # search.
+    best_dec = args.dec
+else:
+    # Start by assuming that not compressing is best.
+    best_dec = 1
+    best_size = 16 * npsignal
+    # Iteratively search through the possible decimations to
+    # find the best-compression one. Skip the residue coding to
+    # save time.
+    for dec in range(2, args.max_dec + 1):
+        csize = compress(dec, size_only=True)
+        if csize == None:
+            break
+        print(f"dec {dec} kb {kbytes(csize)}")
+        if csize < best_size:
+            best_dec = dec
+            best_size = csize
 
 # If the file doesn't compress, give up.
 if best_dec == 1:
@@ -263,7 +272,7 @@ if best_dec == 1:
     exit(2)
 
 # Actually compress the signal, reporting results.
-model, residue = compress(best_dec, save=args.save)
+model, residue = compress(best_dec, save=args.save_intermediate)
 bits_model = 16 * len(model)
 bits_residue = 8 * len(residue)
 print(f"best dec {best_dec}")
