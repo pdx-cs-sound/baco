@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import os
 from scipy import signal
 import soundfile, sys
 
@@ -11,8 +12,13 @@ ripple = -40
 # Parse the command-line arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "-n", "--nocompress",
+    "-n", "--no-compress",
     help="Do not produce an output .baco file.",
+    action="store_true",
+)
+parser.add_argument(
+    "-f", "--force",
+    help="Overwrite an existing output .baco file if present.",
     action="store_true",
 )
 parser.add_argument(
@@ -279,3 +285,13 @@ print(f"best dec {best_dec}")
 print(f"model kb {kbytes(bits_model)}")
 print(f"residue kb {kbytes(bits_residue)}")
 print(f"total kbytes {kbytes(bits_model + bits_residue)}")
+
+if args.no_compress:
+    exit(0)
+
+# Write .baco file.
+dest = args.infile + ".baco"
+if not args.force and os.path.exists(dest):
+    print(f"{dest} exists and no -f flag: refusing to write", file=sys.stderr)
+    exit(1)
+baco = open(dest, "w")
