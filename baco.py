@@ -375,7 +375,7 @@ wp("<I", in_sound.samplerate)
 wp("<H", args.blocksize)
 # 22.. Per-channel info.
 # 22: Decimation factors, one per channel.
-wp("B", dec)
+wp("B", best_dec)
 # 23: Pad decimation factors to 8-byte boundary.
 wp("B", 0)
 # 24: Channel model lengths in frames, one per channel.
