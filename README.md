@@ -90,6 +90,7 @@ which describes it reasonably clearly.
 * [x] Computations "integerized" (but in float because `numpy`)
 * [x] Writes output to `.baco` file
 * [x] Saves filter in `.baco` file for reconstruction
+* [x] Add proper `stdin` / `stdout` handling for filtering
 * [ ] Decompresses
 * [ ] Tested losslessness
 * [ ] Packaging

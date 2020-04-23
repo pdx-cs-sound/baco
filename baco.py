@@ -67,9 +67,18 @@ parser.add_argument(
 )
 parser.add_argument(
     "infile",
-    help="Input wave filename (no prefix).",
+    help="Input filename (default stdin).",
+    nargs="?",
+)
+parser.add_argument(
+    "outfile",
+    help="Output filename (default stdout).",
+    nargs="?",
 )
 args = parser.parse_args()
+if args.save_intermediate and args.infile is None:
+    eprint("cannot save intermediates without input filename")
+    exit(1)
 
 # RMS signal power in dB for reporting.
 def rmsdb(signal):
@@ -77,7 +86,11 @@ def rmsdb(signal):
     return 20 * np.log10(rms)
 
 # Read the input signal.
-in_sound = soundfile.SoundFile(args.infile + ".wav")
+if args.infile is None:
+    infile = sys.stdin.buffer
+else:
+    infile = args.infile
+in_sound = soundfile.SoundFile(infile)
 if in_sound.channels != 1:
     eprint("sorry, mono audio only")
     exit(1)
@@ -93,9 +106,9 @@ npsignal = len(psignal)
 def write_signal(prefix, wsignal, save=False):
     if not save:
         return
-    outfile = open(prefix + args.infile + ".wav", "wb")
+    sigfile = open(prefix + args.infile, "wb")
     soundfile.write(
-        outfile,
+        sigfile,
         wsignal,
         in_sound.samplerate,
         subtype=in_sound.subtype,
@@ -121,7 +134,7 @@ def rescode(residue, size_only=False):
 
     # Append val as a field of size bits to the residue
     # block, blocking into bytes as needed.
-    def save(val, bits):
+    def savebits(val, bits):
         nonlocal acc, nacc, rbytes
 
         # Add bits to the accumulator.
@@ -167,10 +180,10 @@ def rescode(residue, size_only=False):
             continue
 
         # Save the bit size, then all the bits.
-        save(bbits, 5)
+        savebits(bbits, 5)
         block += 1 << (bbits - 1)
         for r in block:
-            save(r, bbits)
+            savebits(r, bbits)
 
     # If size_only, just return the number of bits
     # for the residue representation.
@@ -322,11 +335,13 @@ if args.no_compress:
     exit(0)
 
 # Open .baco file.
-dest = args.infile + ".baco"
-if not args.force and os.path.exists(dest):
-    eprint(f"{dest} exists and no -f flag: refusing to write")
-    exit(1)
-baco = open(dest, "wb")
+if args.outfile is None:
+    baco = sys.stdout.buffer
+else:
+    if not args.force and os.path.exists(dest):
+        eprint(f"{dest} exists and no -f flag: refusing to write")
+        exit(1)
+    baco = open(dest, "wb")
 
 # Convenience function for writing packed bytes.
 def wp(fmt, *args):
