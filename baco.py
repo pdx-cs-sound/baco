@@ -23,13 +23,13 @@ def eprint(*args, **kwargs):
 # Parse the command-line arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "-n", "--no-compress",
-    help="Do not produce an output .baco file.",
+    "-n", "--no-result",
+    help="Do not produce an output file.",
     action="store_true",
 )
 parser.add_argument(
     "-f", "--force",
-    help="Overwrite an existing output .baco file if present.",
+    help="Overwrite an existing output file if present.",
     action="store_true",
 )
 parser.add_argument(
@@ -79,6 +79,16 @@ args = parser.parse_args()
 if args.save_intermediate and args.infile is None:
     eprint("cannot save intermediates without input filename")
     exit(1)
+if args.infile is not None:
+    _, ext = os.path.splitext(args.infile)
+    if ext.lower() != ".wav":
+        eprint(f"input file {args.infile} is not .wav: exiting")
+        exit(1)
+if args.outfile is not None:
+    _, ext = os.path.splitext(args.outfile)
+    if ext.lower() != ".baco":
+        eprint(f"output file {args.outfile} is not .baco: exiting")
+        exit(1)
 
 # RMS signal power in dB for reporting.
 def rmsdb(signal):
@@ -331,7 +341,7 @@ if args.verbose:
     eprint(f"coeffs ({ncoeffs}) KiB {kbytes(bits_coeffs)}")
     eprint(f"total KiB {kbytes(bits_model + bits_residue + bits_coeffs)}")
 
-if args.no_compress:
+if args.no_result:
     exit(0)
 
 # Open .baco file.
