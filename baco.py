@@ -30,6 +30,11 @@ parser.add_argument(
     action="store_true",
 )
 parser.add_argument(
+    "-p", "--persist",
+    help="Continue search after filesize increases.",
+    action="store_true",
+)
+parser.add_argument(
     "-m", "--max-dec",
     help="Maximum decimation factor for search.",
     type=int,
@@ -280,6 +285,8 @@ else:
         if csize < best_size:
             best_dec = dec
             best_size = csize
+        elif csize > best_size and not args.persist and best_dec > 1:
+            break
 
 # If the file doesn't compress, give up.
 if best_dec == 1:
