@@ -76,19 +76,26 @@ To run `baco`, say `python3 baco.py --help`. This will give
 information about the options available. To run `baco` on a
 file `f.wav`, say `python3 baco.py f`.
 
+## The `.baco` File Format
+
+Version 1 of the `.baco` compressed file format is
+undocumented except in code comments. Please see `baco.py`,
+which describes it reasonably clearly.
+
 ## Status
 
 * [x] Decimation model complete
 * [x] Block residue encoder complete
 * [x] Adequate commenting and documentation
 * [x] Computations "integerized" (but in float because `numpy`)
-* [ ] Writes output to `.baco` file
-* [ ] Progressive `.baco` files (interleaved)
+* [x] Writes output to `.baco` file
+* [ ] Saves filter in `.baco` file for reconstruction
 * [ ] Decompresses
 * [ ] Tested losslessness
 * [ ] Packaging
 * [ ] Stereo
 * [ ] Multichannel
+* [ ] Progressive `.baco` files (interleaved)
 * [ ] Computations fully integerized
 * [ ] Progressive compression, without whole signal in memory
 * [ ] Support for 8, 24, and 32 bit samples
