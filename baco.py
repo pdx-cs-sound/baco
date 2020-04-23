@@ -2,7 +2,10 @@ import argparse
 import numpy as np
 import os
 from scipy import signal
-import soundfile, sys
+import soundfile, struct, sys
+
+# .baco file format version
+baco_version = 1
 
 # Anti-aliasing filter transition bandwidth.
 trans = 0.01
@@ -19,6 +22,11 @@ parser.add_argument(
 parser.add_argument(
     "-f", "--force",
     help="Overwrite an existing output .baco file if present.",
+    action="store_true",
+)
+parser.add_argument(
+    "-v", "--verbose",
+    help="Report compression statistics to stderr.",
     action="store_true",
 )
 parser.add_argument(
@@ -267,7 +275,8 @@ else:
         csize = compress(dec, size_only=True)
         if csize == None:
             break
-        print(f"dec {dec} kb {kbytes(csize)}")
+        if args.verbose:
+            print(f"dec {dec} kib {kbytes(csize)}", file=sys.stderr)
         if csize < best_size:
             best_dec = dec
             best_size = csize
@@ -277,21 +286,58 @@ if best_dec == 1:
     print("No compression found. Exiting.", file=sys.stderr)
     exit(2)
 
-# Actually compress the signal, reporting results.
+# Actually compress the signal.
 model, residue = compress(best_dec, save=args.save_intermediate)
-bits_model = 16 * len(model)
-bits_residue = 8 * len(residue)
-print(f"best dec {best_dec}")
-print(f"model kb {kbytes(bits_model)}")
-print(f"residue kb {kbytes(bits_residue)}")
-print(f"total kbytes {kbytes(bits_model + bits_residue)}")
+nmodel = len(model)
+nresidue = len(residue)
+
+# Report results if requested.
+if args.verbose:
+    bits_model = 16 * nmodel
+    bits_residue = 8 * nresidue
+    print(f"best dec {best_dec}", file=sys.stderr)
+    print(f"model kib {kbytes(bits_model)}", file=sys.stderr)
+    print(f"residue kib {kbytes(bits_residue)}", file=sys.stderr)
+    print(f"total kib {kbytes(bits_model + bits_residue)}", file=sys.stderr)
 
 if args.no_compress:
     exit(0)
 
-# Write .baco file.
+# Open .baco file.
 dest = args.infile + ".baco"
 if not args.force and os.path.exists(dest):
     print(f"{dest} exists and no -f flag: refusing to write", file=sys.stderr)
     exit(1)
-baco = open(dest, "w")
+baco = open(dest, "wb")
+
+# Convenience function for writing packed bytes.
+def wp(fmt, *args):
+    baco.write(struct.pack(fmt, *args))
+
+# Write .baco file. Note that all values are little-endian.
+# 0: Magic number.
+baco.write(b"baco")
+# 4: File version.
+wp("<H", baco_version)
+# 6: Sample size in bits (for signal and model).
+wp("<B", 16)
+# 7: Sample channels.
+wp("<B", 1)
+# 8: Signal length in frames.
+wp("<Q", npsignal)
+# 16: Sample rate in sps.
+wp("<I", in_sound.samplerate)
+# 20.. Per-channel info.
+# 20: Decimation factors, one per channel.
+wp("<B", dec)
+# 21: Pad decimation factors to 8-byte boundary.
+wp("<3B", 0, 0, 0)
+# 24: Channel model lengths in frames, one per channel.
+wp("<Q", nmodel)
+# 32: Residue lengths in bytes, one per channel.
+wp("<Q", nresidue)
+# 40: Models, one per channel.
+baco.write(bytes(model.newbyteorder('<')))
+# Residues, one per channel.
+baco.write(bytes(residue))
+baco.close()
