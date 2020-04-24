@@ -1,9 +1,10 @@
 # baco - Bad Audio Compressor
 Bart Massey
 
-"Bad"? Maybe "baseline"? Anyway, this is a compressor for
-16-bit monaural (one channel) WAV files. `baco` is written
-in Python 3. It is intended entirely for teaching purposes.
+"Bad"? Maybe "baseline"? "Bart's"? Anyway, this is a
+compressor for 16-bit monaural (one channel) WAV
+files. `baco` is written in Python 3. It is intended
+entirely for teaching purposes.
 
 *This is a work in progress* and should be used only for
 education, research and entertainment purposes. Please see
@@ -74,7 +75,16 @@ get these dependencies.
 
 To run `baco`, say `python3 baco.py --help`. This will give
 information about the options available. To run `baco` on a
-file `f.wav`, say `python3 baco.py f`.
+file `f.wav`, say `python3 baco.py f.wav f.baco`.
+
+To run `unbaco`, say `python3 unbaco.py --help`. This will
+give information about the options available. To run
+`unbaco` on a file `f.baco`, say `python3 unbaco.py f.baco
+f.wav`.
+
+The dev utility `wavdiff.py` is included to compare the
+samples of two WAV files without regard for the exact format
+and alignment of header information.
 
 ## The `.baco` File Format
 
@@ -91,8 +101,8 @@ which describes it reasonably clearly.
 * [x] Writes output to `.baco` file
 * [x] Saves filter in `.baco` file for reconstruction
 * [x] Add proper `stdin` / `stdout` handling for filtering
-* [ ] Decompresses
-* [ ] Tested losslessness
+* [x] Decompresses
+* [x] Tested losslessness
 * [ ] Packaging
 * [ ] Stereo
 * [ ] Multichannel
