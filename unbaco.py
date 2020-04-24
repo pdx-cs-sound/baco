@@ -59,6 +59,15 @@ baco = infile.read()
 infile.close()
 nbaco = len(baco)
 
+# Open WAV file.
+if args.outfile is None:
+    wav = sys.stdout.buffer
+else:
+    if not args.force and os.path.exists(args.outfile):
+        eprint(f"{args.outfile} exists and no -f flag: refusing to write")
+        exit(1)
+    wav = open(args.outfile, "wb")
+
 # Convenience function for reading packed bytes.
 baco_offset = 0
 def rp(fmt, *args):
@@ -155,15 +164,6 @@ for b, i in enumerate(range(0, npsignal, blocksize)):
     for j in range(i, end):
         r = readres(nbbits) + offset
         psignal[j] += r
-
-# Open WAV file.
-if args.outfile is None:
-    wav = sys.stdout.buffer
-else:
-    if not args.force and os.path.exists(args.outfile):
-        eprint(f"{dest} exists and no -f flag: refusing to write")
-        exit(1)
-    wav = open(args.outfile, "wb")
 
 # Write the given signal to WAV file (and close it).
 soundfile.write(
