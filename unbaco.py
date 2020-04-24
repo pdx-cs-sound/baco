@@ -123,7 +123,37 @@ isignal = np.zeros(npsignal + phase, dtype=np.int64)
 for i in range(nmodel):
     isignal[dec * i] = dec * model[i]
 msignal = signal.lfilter(coeffs, [1], isignal)
-mpsignal = (msignal[phase:] // (1 << 31)).astype(np.int16)
+psignal = (msignal[phase:] // (1 << 31)).astype(np.int16)
+
+# Utility function for reading residue. Return the
+# next nbits bits from the residue stream.
+res_offset = 0
+acc = 0
+nacc = 0
+def readres(nbits):
+    global res_offset, acc, nacc
+    while nacc < nbits:
+        acc <<= 8
+        acc |= residue[res_offset]
+        nacc += 8
+        res_offset += 1
+    mask = (1 << nbits) - 1
+    shift = nacc - nbits
+    result = (acc >> shift) & mask
+    acc &= ~(mask << shift)
+    nacc -= nbits
+    return result
+
+# Reconstruct and add the residue to the model to
+# get the final signal.
+for b, i in enumerate(range(0, npsignal, blocksize)):
+    end = min(i + blocksize, npsignal)
+    nbbits = readres(5)
+    #eprint(f"block {b} bits {nbbits}")
+    offset = -(1 << (nbbits - 1))
+    for j in range(i, end):
+        r = readres(nbbits) + offset
+        psignal[j] += r
 
 # Open WAV file.
 if args.outfile is None:
@@ -137,7 +167,7 @@ else:
 # Write the given signal to WAV file (and close it).
 soundfile.write(
     wav,
-    mpsignal,
+    psignal,
     samplerate,
     format="WAV",
     subtype="PCM_16",
