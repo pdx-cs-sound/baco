@@ -5,8 +5,8 @@ from scipy import signal
 import soundfile, struct, sys
 
 # Expected .baco file format version
-baco_version_major = 1
-baco_version_minor = 3
+baco_version_major = 2
+baco_version_minor = 1
 
 # Print to stderr.
 def eprint(*args, **kwargs):
