@@ -20,6 +20,10 @@ between the input and the implied model signal. The implied
 model signal is reconstructed by evaluating the model with
 the computed parameters.
 
+![Diagram: Audio Compression](compression.svg)
+
+![Diagram: Audio Decompression](decompression.svg)
+
 The `baco` modeler is based on the hypothesis that natural
 audio signals often have much of their energy concentrated
 at lower frequencies. The `maco` model is the input signal
