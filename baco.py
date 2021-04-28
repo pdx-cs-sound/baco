@@ -276,7 +276,7 @@ def compress(dec, size_only=False, save=False):
     resignal = (lresignal // 2**31).astype(np.int16)
     write_signal("u", resignal, save=save)
     
-    # Clip the reconstructed signal to get rid of empty
+    # Truncate the reconstructed signal to get rid of empty
     # samples.
     msignal = resignal[phase:]
     write_signal("m", msignal)
