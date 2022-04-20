@@ -26,7 +26,7 @@ the computed parameters.
 
 The `baco` modeler is based on the hypothesis that natural
 audio signals often have much of their energy concentrated
-at lower frequencies. The `maco` model is the input signal
+at lower frequencies. The `baco` model is the input signal
 at a sample rate decimated by some factor *d*. The larger
 *d* is, the smaller the model will be. The model signal is
 reconstructed by interpolating the model back to its
@@ -38,7 +38,7 @@ model. The residue signal is broken into blocks of fixed
 size (specifiable, defaulting to 128 samples). Each sample
 in a block is stored at a number of bits of precision
 sufficient to encode the largest-amplitude signal in the
-block. For each block, the residue outputs a bitstream
+block. For each block, the residue encoder outputs a bitstream
 consisting of the number of bits used to encode samples in
 that block, and then the encoded samples at that
 bit-precision.
@@ -52,8 +52,8 @@ specified by the user.
 The model and residue encoder were chosen to be as simple as
 reasonably possible to understand while still normally
 producing some compression on an input audio
-file. Preliminary results suggest compression better than
-`gzip` but usually worse than `FLAC`.
+file. Preliminary results suggest compression sometimes
+better than `gzip` but usually worse than `FLAC`.
 
 There are a number of possible modelers that could be tried;
 this could also be adaptive either over the whole signal or
@@ -109,13 +109,13 @@ which describes it reasonably clearly.
 * [x] Tested losslessness
 * [ ] Packaging
 * [ ] Stereo
-* [ ] Multichannel
 * [ ] Progressive `.baco` files (interleaved)
-* [ ] Computations fully integerized
 * [ ] Progressive compression, without whole signal in memory
 * [ ] Support for 8, 24, and 32 bit samples
-* [ ] Arithmetic residue encoder
-* [ ] Better model
+* [ ] Multichannel
+* [ ] Computations fully integerized
+* [ ] Better residue encoder(s)
+* [ ] Better model(s)
 
 ## License
 
